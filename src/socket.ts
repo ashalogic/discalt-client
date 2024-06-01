@@ -1,11 +1,11 @@
 "use client";
 
-import { createContext,useState } from "react";
+import { createContext, useState } from "react";
 import { Manager } from "socket.io-client";
 
 // const [room, setRoom] = useState("");
 
-const manager = new Manager("https://squid-app-alc8r.ondigitalocean.app/", {
+const manager = new Manager("https://bit.ly/discaltserver", {
   autoConnect: false,
 });
 
