@@ -60,7 +60,8 @@ export default function Chatp2p() {
     });
     peerConnection.ontrack = (e) => {
       e.streams[0].getTracks().forEach((track) => {
-        remoteStream.addTrack(track, remoteStream);
+        // remoteStream.addTrack(track, remoteStream);
+        remoteStream.addTrack(track);
       });
       console.log("remote-stream-available");
     };
