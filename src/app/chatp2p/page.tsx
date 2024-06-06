@@ -8,6 +8,9 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import eye from "../../../public/bg_p2p_chat.svg";
 import cryptoAPI from "@/app/util/cryptoAPI";
+import { BiCopy } from "react-icons/bi";
+
+import { PC } from "./ChatP2PContextProvider";
 
 export default function Chatp2p() {
   const [QRCodeDataURL, setQRCodeDataURL] = useState("");
@@ -17,62 +20,62 @@ export default function Chatp2p() {
   // const [localAnswer, setLocalAnswer] = useState<RTCSessionDescriptionInit>();
   // const [localAnswerEncrypted, setLocalAnswerEncrypted] = useState<string>();
 
-  let peerConnection: RTCPeerConnection;
-  let localStream: MediaStream;
-  let remoteStream: MediaStream;
-
-  const Init = async () => {
-    QRCode.toDataURL("Venus")
-      .then((url: string) => {
-        setQRCodeDataURL(url);
-      })
-      .catch((err: string) => {
-        console.error(err);
-      });
-    remoteStream = new MediaStream();
-    peerConnection = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: [
-            "stun:stun3.l.google.com:19302",
-            "stun:stun4.l.google.com:19302",
-          ],
-        },
-      ],
-    });
-    peerConnection.addEventListener("connectionstatechange", () => {
-      console.log("connection-state:", peerConnection.connectionState);
-      if (peerConnection.connectionState === "connected") {
-        alert("connected");
-      }
-    });
-    // Camera
-    localStream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        facingMode: "user",
-      },
-    });
-    (document.getElementById("local-video") as HTMLVideoElement).srcObject =
-      localStream;
-    localStream.getTracks().forEach((track) => {
-      peerConnection.addTrack(track, localStream);
-    });
-    peerConnection.ontrack = (e) => {
-      e.streams[0].getTracks().forEach((track) => {
-        // remoteStream.addTrack(track, remoteStream);
-        remoteStream.addTrack(track);
-      });
-      console.log("remote-stream-available");
-    };
-  };
-  const CreateOffer = () => {};
-  const AcceptOffer = () => {};
-  const AcceptAnswer = () => {};
-
   useEffect(() => {
-    Init();
+    async function doAsync() {
+      QRCode.toDataURL("Venus")
+        .then((url: string) => {
+          setQRCodeDataURL(url);
+        })
+        .catch((err: string) => {
+          console.error(err);
+        });
+      await PC.createPeerConnection();
+      // const offer = await PC.createOffer();
+      // (document.getElementById("SDP") as HTMLTextAreaElement).value = offer;
+      PC.addEventListener("local-stream-available", () => {
+        if (PC.localStream)
+          (
+            document.getElementById("local-video") as HTMLVideoElement
+          ).srcObject = PC.localStream;
+      });
+      PC.addEventListener("remote-stream-available", () => {
+        if (PC.remoteStream)
+          (
+            document.getElementById("remote-video") as HTMLVideoElement
+          ).srcObject = PC.remoteStream;
+      });
+      PC.addEventListener("peers-connected", () => {
+        alert("connected");
+      });
+      PC.addEventListener("peers-disconnected", () => {
+        alert("disconnected");
+      });
+      return () => {
+        PC.removeEventListener("local-stream-available");
+        PC.removeEventListener("remote-stream-available");
+        PC.removeEventListener("peers-connected");
+        PC.removeEventListener("peers-disconnected");
+      };
+    }
+    doAsync();
   }, []);
+
+  const Init = async () => {};
+  const CreateOffer = async () => {
+    const offer = await PC.createOffer();
+    (document.getElementById("SDP") as HTMLTextAreaElement).value = offer;
+  };
+  const AcceptOffer = async () => {
+    const offer = (document.getElementById("SDP") as HTMLTextAreaElement).value;
+    await PC.acceptOffer(JSON.parse(offer));
+    const answer = await PC.createAnswer();
+    (document.getElementById("SDP") as HTMLTextAreaElement).value = answer;
+  };
+  const AcceptAnswer = async () => {
+    const answer = (document.getElementById("SDP") as HTMLTextAreaElement)
+      .value;
+    await PC.acceptAnswer(JSON.parse(answer));
+  };
 
   // (window as any).initializePeerConnection = async (remoteSocketId?: any) => {
   //   // console.log("Remote Socket ID: " + remoteSocketId);
@@ -227,16 +230,13 @@ export default function Chatp2p() {
   );
 
   return (
-    <main
-      className="h-dvh bg-neutral-200 p-4 bg-no-repeat bg-right-bottom bg-[length:400px_300px]"
-      style={{ backgroundImage: `url('/backgrounds/1.svg')` }}
-    >
+    <div>
       {/* <button onClick={initializePeerConnection}>Create Offer</button> */}
 
       <div className="flex flex-col gap-4">
-        <div className="w-full md:w-8/12 lg:w-8/12 xl:6/12 flex flex-row mx-auto gap-4">
-          <div className="flex flex-row flex-grow rounded-md backdrop-blur-md bg-white/70 text-black shadow-md">
-            <div className="flex flex-col flex-shrink items-center bg-[#FEE7F9] p-4">
+        <div className="w-full md:w-8/12 lg:w-8/12 xl:6/12 flex flex-row mx-auto gap-2 sm:gap-4">
+          <div className="flex flex-row flex-shrink rounded-md backdrop-blur-md bg-white text-black shadow-md">
+            <div className="flex flex-col flex-shrink items-center bg-[#FEE7F9] p-2 sm:p-4 gap-2 sm:gap-4">
               <img
                 alt=""
                 className="border-2 border-black rounded-full"
@@ -247,39 +247,55 @@ export default function Chatp2p() {
               <span>Parsiya</span>
               <span>Keshavarz</span>
             </div>
-            <div className="flex flex-row flex-grow items-center gap-2 p-4">
-              <img className="min-w-fit w-fit border-2" alt="" height={64} width={64} src={QRCodeDataURL} />
-              <div className="min-w-fit w-fit flex flex-col gap-1">
-                <button className="shadow-inner hover:shadow-md bg-white p-2 rounded-md">
-                  Create Offer
-                </button>
-                <button className="shadow-inner hover:shadow-md bg-white p-2 rounded-md">
-                  Create Offer
-                </button>
-                <button className="shadow-inner hover:shadow-md bg-white p-2 rounded-md">
-                  Create Offer
-                </button>
-              </div>
-              <textarea className="w-full h-full" />
-            </div>
-          </div>
-          <div className="flex flex-row-reverse flex-shrink rounded-md backdrop-blur-md bg-white/70 text-black shadow-md">
-            <div className="flex flex-col items-center justify-around bg-[#E2EEDA] p-4">
+            <div className="flex flex-col justify-center p-1 sm:p-4 gap-1 sm:gap-4">
               <img
+                className="w-fit"
                 alt=""
-                className="border-2 border-black rounded-full"
                 height={64}
                 width={64}
-                src="https://avatar.iran.liara.run/public/girl?username=Maria"
+                src={QRCodeDataURL}
               />
-              <span>...</span>
-              <span>......</span>
+            </div>
+          </div>
+          <div className="flex flex-row flex-grow rounded-md backdrop-blur-md bg-white text-black shadow-md">
+            <div className="basis-3/4 sm:basis-2/4 flex flex-col justify-around p-2 sm:p-4 gap-2 sm:gap-4">
+              <button
+                onClick={async () => {
+                  await CreateOffer();
+                }}
+                className="hover:shadow-md bg-white p-2 rounded-sm minw-fit"
+              >
+                Create Offer
+              </button>
+              <button
+                onClick={async () => {
+                  await AcceptOffer();
+                }}
+                className="hover:shadow-md bg-white p-2 rounded-sm"
+              >
+                AcceptOffer
+              </button>
+              <button
+                onClick={async () => {
+                  await AcceptAnswer();
+                }}
+                className="hover:shadow-md bg-white p-2 rounded-sm"
+              >
+                Accept Answer
+              </button>
+            </div>
+            <div className="basis-2/4 sm:basis-2/4 p-4 flex">
+              <textarea id="SDP" className="w-full h-full border-2" />
+              <button className="p-2 shadow-sm hover:shadow-lg bg-white rounded-sm absolute bottom-5 right-5">
+                <BiCopy />
+              </button>
             </div>
           </div>
         </div>
         <div className="w-full md:w-8/12 lg:w-8/12 mx-auto rounded-md backdrop-blur-md bg-white/70 border-t-8 border-[#F7E6D4] text-black shadow-md p-4">
           <video
             className="w-full"
+            id="remote-video"
             src="https://videos.pexels.com/video-files/3209828/3209828-hd_1280_720_25fps.mp4"
             autoPlay={true}
             muted
@@ -291,7 +307,6 @@ export default function Chatp2p() {
             muted
           />
         </div>
-        {/* <Image height={128} width={128} alt="" src={"/backgrounds/1.svg"} /> */}
       </div>
 
       {/* {CallCard} */}
@@ -319,6 +334,6 @@ export default function Chatp2p() {
             <h1>ChatP2P</h1>
           </div>
         ))} */}
-    </main>
+    </div>
   );
 }
